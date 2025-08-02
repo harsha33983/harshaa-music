@@ -335,6 +335,7 @@ export const HomePage: React.FC = () => {
             onPrevious={playPrevious}
             onSeek={seekTo}
             onVolumeChange={setVolume}
+            onSleepTimerComplete={pause}
           />
         </div>
       )}

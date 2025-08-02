@@ -193,6 +193,7 @@ export const LikedSongsPage: React.FC = () => {
             onPrevious={playPrevious}
             onSeek={seekTo}
             onVolumeChange={setVolume}
+            onSleepTimerComplete={pause}
           />
         </div>
       )}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { PlayerState } from '../types/youtube';
+import { SleepTimer } from './SleepTimer';
 
 interface PlayerControlsProps {
   playerState: PlayerState;
@@ -10,6 +11,7 @@ interface PlayerControlsProps {
   onPrevious: () => void;
   onSeek: (seconds: number) => void;
   onVolumeChange: (volume: number) => void;
+  onSleepTimerComplete: () => void;
 }
 
 export const PlayerControls: React.FC<PlayerControlsProps> = ({
@@ -20,6 +22,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
   onPrevious,
   onSeek,
   onVolumeChange,
+  onSleepTimerComplete,
 }) => {
   const { isPlaying, currentTime, duration, volume, currentTrack, currentIndex, queue } = playerState;
 
@@ -116,7 +119,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center justify-center space-x-2 md:space-x-3">
+        <div className="flex items-center justify-center space-x-2 md:space-x-3 mb-2">
           {volume === 0 ? (
             <VolumeX className="h-4 w-4 md:h-5 md:w-5 text-gray-300" />
           ) : (
@@ -134,6 +137,10 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
             </div>
           </div>
           <span className="text-xs md:text-sm text-gray-300 w-6 md:w-8">{Math.round(volume)}%</span>
+        </div>
+
+        <div className="flex justify-center">
+          <SleepTimer onTimerComplete={onSleepTimerComplete} />
         </div>
       </div>
     </div>

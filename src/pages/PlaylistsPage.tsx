@@ -215,6 +215,7 @@ export const PlaylistsPage: React.FC = () => {
               onPrevious={playPrevious}
               onSeek={seekTo}
               onVolumeChange={setVolume}
+              onSleepTimerComplete={pause}
             />
           </div>
         )}
