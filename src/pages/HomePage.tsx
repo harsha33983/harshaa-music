@@ -4,13 +4,12 @@ import { SearchBar } from '../components/SearchBar';
 import { TrackList } from '../components/TrackList';
 import { PlayerControls } from '../components/PlayerControls';
 import { VideoPlayer } from '../components/VideoPlayer';
-import { UserMenu } from '../components/UserMenu';
 import { PlaylistModal } from '../components/PlaylistModal';
 import { useYouTubePlayer } from '../hooks/useYouTubePlayer';
-import { useAuth } from '../hooks/useAuth';
-import { useUserData } from '../hooks/useUserData';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import { youtubeApi, YouTubeApiService } from '../services/youtubeApi';
 import { YouTubeVideo } from '../types/youtube';
+import { Playlist } from '../types/user';
 
 export const HomePage: React.FC = () => {
   const [apiService] = useState<YouTubeApiService>(youtubeApi);
@@ -22,16 +21,8 @@ export const HomePage: React.FC = () => {
   const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<YouTubeVideo | null>(null);
   const [currentView, setCurrentView] = useState<'search' | 'liked' | 'playlists'>('search');
 
-  const { user, logout } = useAuth();
-  const { 
-    userData, 
-    playlists, 
-    toggleLikedSong, 
-    createPlaylist, 
-    deletePlaylist, 
-    addToPlaylist, 
-    isTrackLiked 
-  } = useUserData(user?.uid || null);
+  const [likedSongs, setLikedSongs] = useLocalStorage<YouTubeVideo[]>('likedSongs', []);
+  const [playlists, setPlaylists] = useLocalStorage<Playlist[]>('playlists', []);
 
   const {
     playerState,
@@ -49,7 +40,7 @@ export const HomePage: React.FC = () => {
   const getCurrentTracks = () => {
     switch (currentView) {
       case 'liked':
-        return userData?.likedSongs || [];
+        return likedSongs;
       case 'playlists':
         return []; // Will be handled separately
       default:
@@ -60,7 +51,7 @@ export const HomePage: React.FC = () => {
   const getCurrentTitle = () => {
     switch (currentView) {
       case 'liked':
-        return `Liked Songs (${userData?.likedSongs.length || 0})`;
+        return `Liked Songs (${likedSongs.length})`;
       case 'playlists':
         return 'My Playlists';
       default:
@@ -96,7 +87,6 @@ export const HomePage: React.FC = () => {
 
   const handleShowLikedSongs = () => {
     setCurrentView('liked');
-    const likedSongs = userData?.likedSongs || [];
     if (likedSongs.length > 0) {
       setQueue(likedSongs, 0);
     }
@@ -113,7 +103,43 @@ export const HomePage: React.FC = () => {
   };
 
   const handleLikeToggle = (track: YouTubeVideo) => {
-    toggleLikedSong(track);
+    const isLiked = likedSongs.some(song => song.id === track.id);
+    if (isLiked) {
+      setLikedSongs(likedSongs.filter(song => song.id !== track.id));
+    } else {
+      setLikedSongs([...likedSongs, track]);
+    }
+  };
+
+  const isTrackLiked = (trackId: string): boolean => {
+    return likedSongs.some(song => song.id === trackId);
+  };
+
+  const createPlaylist = (name: string, description?: string): Playlist => {
+    const newPlaylist: Playlist = {
+      id: Date.now().toString(),
+      name,
+      description,
+      tracks: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      userId: 'local',
+      isPublic: false,
+    };
+    setPlaylists([...playlists, newPlaylist]);
+    return newPlaylist;
+  };
+
+  const deletePlaylist = (playlistId: string) => {
+    setPlaylists(playlists.filter(p => p.id !== playlistId));
+  };
+
+  const addToPlaylist = (playlistId: string, track: YouTubeVideo) => {
+    setPlaylists(playlists.map(p => 
+      p.id === playlistId && !p.tracks.some(t => t.id === track.id)
+        ? { ...p, tracks: [...p.tracks, track], updatedAt: new Date() }
+        : p
+    ));
   };
 
   return (
@@ -145,13 +171,6 @@ export const HomePage: React.FC = () => {
             <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base px-2">
               Search and play your favorite songs with text or voice search. Songs will automatically play one after another with continuous auto-play.
             </p>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <UserMenu
-              user={user!}
-              onLogout={logout}
-            />
           </div>
         </div>
 
@@ -219,7 +238,7 @@ export const HomePage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="order-2 lg:order-1">
               {((currentView === 'search' && hasSearched && (searchResults.length > 0 || isSearching)) || 
-                (currentView === 'liked' && userData?.likedSongs && userData.likedSongs.length > 0)) && (
+                (currentView === 'liked' && likedSongs.length > 0)) && (
                 <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 md:p-6">
                   <div className="flex items-center justify-between mb-4 md:mb-6">
                     <h2 className="text-lg md:text-xl font-semibold text-white">

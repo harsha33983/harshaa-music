@@ -1,19 +1,18 @@
 import React from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Music, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { TrackList } from '../components/TrackList';
 import { PlayerControls } from '../components/PlayerControls';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { PlaylistModal } from '../components/PlaylistModal';
-import { useAuth } from '../hooks/useAuth';
-import { useUserData } from '../hooks/useUserData';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useYouTubePlayer } from '../hooks/useYouTubePlayer';
 import { YouTubeVideo } from '../types/youtube';
 import { Playlist } from '../types/user';
 
 export const PlaylistsPage: React.FC = () => {
-  const { user } = useAuth();
-  const { playlists, toggleLikedSong, createPlaylist, deletePlaylist, addToPlaylist, removeFromPlaylist, isTrackLiked } = useUserData(user?.uid || null);
+  const [likedSongs, setLikedSongs] = useLocalStorage<YouTubeVideo[]>('likedSongs', []);
+  const [playlists, setPlaylists] = useLocalStorage<Playlist[]>('playlists', []);
   const [showPlaylistModal, setShowPlaylistModal] = React.useState(false);
   const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = React.useState<YouTubeVideo | null>(null);
   const [selectedPlaylist, setSelectedPlaylist] = React.useState<Playlist | null>(null);
@@ -31,10 +30,6 @@ export const PlaylistsPage: React.FC = () => {
     playPrevious,
     playTrack,
   } = useYouTubePlayer();
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
 
   const handlePlaylistSelect = (playlist: Playlist) => {
     setSelectedPlaylist(playlist);
@@ -60,6 +55,54 @@ export const PlaylistsPage: React.FC = () => {
 
   const toggleVideoView = () => {
     setShowVideo(!showVideo);
+  };
+
+  const toggleLikedSong = (track: YouTubeVideo) => {
+    const isLiked = likedSongs.some(song => song.id === track.id);
+    if (isLiked) {
+      setLikedSongs(likedSongs.filter(song => song.id !== track.id));
+    } else {
+      setLikedSongs([...likedSongs, track]);
+    }
+  };
+
+  const isTrackLiked = (trackId: string): boolean => {
+    return likedSongs.some(song => song.id === trackId);
+  };
+
+  const createPlaylist = (name: string, description?: string): Playlist => {
+    const newPlaylist: Playlist = {
+      id: Date.now().toString(),
+      name,
+      description,
+      tracks: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      userId: 'local',
+      isPublic: false,
+    };
+    setPlaylists([...playlists, newPlaylist]);
+    return newPlaylist;
+  };
+
+  const deletePlaylist = (playlistId: string) => {
+    setPlaylists(playlists.filter(p => p.id !== playlistId));
+  };
+
+  const addToPlaylist = (playlistId: string, track: YouTubeVideo) => {
+    setPlaylists(playlists.map(p => 
+      p.id === playlistId && !p.tracks.some(t => t.id === track.id)
+        ? { ...p, tracks: [...p.tracks, track], updatedAt: new Date() }
+        : p
+    ));
+  };
+
+  const removeFromPlaylist = (playlistId: string, trackId: string) => {
+    setPlaylists(playlists.map(p => 
+      p.id === playlistId 
+        ? { ...p, tracks: p.tracks.filter(t => t.id !== trackId), updatedAt: new Date() }
+        : p
+    ));
   };
 
   if (selectedPlaylist) {

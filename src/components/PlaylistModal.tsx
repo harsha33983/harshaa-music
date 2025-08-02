@@ -10,6 +10,9 @@ interface PlaylistModalProps {
   onCreatePlaylist: (name: string, description?: string) => Promise<Playlist | null>;
   onDeletePlaylist: (playlistId: string) => Promise<void>;
   onAddToPlaylist: (playlistId: string, track: YouTubeVideo) => Promise<void>;
+  onCreatePlaylist: (name: string, description?: string) => Playlist;
+  onDeletePlaylist: (playlistId: string) => void;
+  onAddToPlaylist: (playlistId: string, track: YouTubeVideo) => void;
   selectedTrack?: YouTubeVideo | null;
 }
 
@@ -35,13 +38,13 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
 
     setLoading(true);
     try {
-      const newPlaylist = await onCreatePlaylist(
+      const newPlaylist = onCreatePlaylist(
         playlistName.trim(),
         playlistDescription.trim() || undefined
       );
       
       if (newPlaylist && selectedTrack) {
-        await onAddToPlaylist(newPlaylist.id, selectedTrack);
+        onAddToPlaylist(newPlaylist.id, selectedTrack);
       }
       
       setPlaylistName('');
@@ -59,7 +62,7 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
     if (!selectedTrack) return;
     
     try {
-      await onAddToPlaylist(playlistId, selectedTrack);
+      onAddToPlaylist(playlistId, selectedTrack);
       onClose();
     } catch (error) {
       console.error('Error adding to playlist:', error);
