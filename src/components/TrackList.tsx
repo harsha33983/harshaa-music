@@ -13,7 +13,7 @@ interface TrackListProps {
   onToggleVideo: () => void;
   showVideo: boolean;
   onToggleLike?: (track: YouTubeVideo) => void;
-  onAddToPlaylist?: (track: YouTubeVideo) => void;
+  onAddToPlaylist?: (track: YouTubeVideo) => void | undefined;
   isTrackLiked?: (trackId: string) => boolean;
 }
 

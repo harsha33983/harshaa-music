@@ -1,30 +1,30 @@
 import React, { useState } from 'react';
 import { X, Plus, Music, Trash2 } from 'lucide-react';
-import { Playlist } from '../types/user';
 import { YouTubeVideo } from '../types/youtube';
+import { useSupabaseData } from '../hooks/useSupabaseData';
+
+interface SupabasePlaylist {
+  id: string;
+  name: string;
+  description: string;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+  tracks: YouTubeVideo[];
+}
 
 interface PlaylistModalProps {
   isOpen: boolean;
   onClose: () => void;
-  playlists: Playlist[];
-  onCreatePlaylist: (name: string, description?: string) => Promise<Playlist | null>;
-  onDeletePlaylist: (playlistId: string) => Promise<void>;
-  onAddToPlaylist: (playlistId: string, track: YouTubeVideo) => Promise<void>;
-  onCreatePlaylist: (name: string, description?: string) => Playlist;
-  onDeletePlaylist: (playlistId: string) => void;
-  onAddToPlaylist: (playlistId: string, track: YouTubeVideo) => void;
   selectedTrack?: YouTubeVideo | null;
 }
 
 export const PlaylistModal: React.FC<PlaylistModalProps> = ({
   isOpen,
   onClose,
-  playlists,
-  onCreatePlaylist,
-  onDeletePlaylist,
-  onAddToPlaylist,
   selectedTrack,
 }) => {
+  const { playlists, createPlaylist, deletePlaylist, addToPlaylist } = useSupabaseData();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
   const [playlistDescription, setPlaylistDescription] = useState('');
@@ -38,13 +38,13 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
 
     setLoading(true);
     try {
-      const newPlaylist = onCreatePlaylist(
+      const newPlaylist = await createPlaylist(
         playlistName.trim(),
         playlistDescription.trim() || undefined
       );
       
       if (newPlaylist && selectedTrack) {
-        onAddToPlaylist(newPlaylist.id, selectedTrack);
+        await addToPlaylist(newPlaylist.id, selectedTrack);
       }
       
       setPlaylistName('');
@@ -62,7 +62,7 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
     if (!selectedTrack) return;
     
     try {
-      onAddToPlaylist(playlistId, selectedTrack);
+      await addToPlaylist(playlistId, selectedTrack);
       onClose();
     } catch (error) {
       console.error('Error adding to playlist:', error);
@@ -134,14 +134,14 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-medium truncate">{playlist.name}</p>
                         <p className="text-gray-400 text-sm">
-                          {playlist.tracks.length} song{playlist.tracks.length !== 1 ? 's' : ''}
+                          {playlist.tracks?.length || 0} song{(playlist.tracks?.length || 0) !== 1 ? 's' : ''}
                         </p>
                       </div>
                     </button>
                     
                     {!selectedTrack && (
                       <button
-                        onClick={() => onDeletePlaylist(playlist.id)}
+                        onClick={() => deletePlaylist(playlist.id)}
                         className="p-2 text-gray-400 hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />

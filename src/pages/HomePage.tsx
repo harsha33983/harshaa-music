@@ -1,28 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Heart, LogOut } from 'lucide-react';
+import { Music, LogIn } from 'lucide-react';
 import { SearchBar } from '../components/SearchBar';
 import { TrackList } from '../components/TrackList';
 import { PlayerControls } from '../components/PlayerControls';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { PlaylistModal } from '../components/PlaylistModal';
+import { AuthModal } from '../components/AuthModal';
+import { UserMenu } from '../components/UserMenu';
 import { useYouTubePlayer } from '../hooks/useYouTubePlayer';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useAuth } from '../hooks/useAuth';
+import { useSupabaseData } from '../hooks/useSupabaseData';
 import { youtubeApi, YouTubeApiService } from '../services/youtubeApi';
 import { YouTubeVideo } from '../types/youtube';
-import { Playlist } from '../types/user';
 
 export const HomePage: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
+  const { 
+    likedSongs, 
+    playlists, 
+    loading: dataLoading,
+    toggleLikeSong, 
+    isTrackLiked,
+    addToPlaylist
+  } = useSupabaseData();
+  
   const [apiService] = useState<YouTubeApiService>(youtubeApi);
   const [searchResults, setSearchResults] = useState<YouTubeVideo[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<YouTubeVideo | null>(null);
   const [currentView, setCurrentView] = useState<'search' | 'liked' | 'playlists'>('search');
-
-  const [likedSongs, setLikedSongs] = useLocalStorage<YouTubeVideo[]>('likedSongs', []);
-  const [playlists, setPlaylists] = useLocalStorage<Playlist[]>('playlists', []);
 
   const {
     playerState,
@@ -86,6 +96,10 @@ export const HomePage: React.FC = () => {
   };
 
   const handleShowLikedSongs = () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     setCurrentView('liked');
     if (likedSongs.length > 0) {
       setQueue(likedSongs, 0);
@@ -93,54 +107,43 @@ export const HomePage: React.FC = () => {
   };
 
   const handleShowPlaylists = () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     setCurrentView('playlists');
     setShowPlaylistModal(true);
   };
 
   const handleAddToPlaylist = (track: YouTubeVideo) => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     setSelectedTrackForPlaylist(track);
     setShowPlaylistModal(true);
   };
 
-  const handleLikeToggle = (track: YouTubeVideo) => {
-    const isLiked = likedSongs.some(song => song.id === track.id);
-    if (isLiked) {
-      setLikedSongs(likedSongs.filter(song => song.id !== track.id));
-    } else {
-      setLikedSongs([...likedSongs, track]);
+  const handleLikeToggle = async (track: YouTubeVideo) => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
     }
+    await toggleLikeSong(track);
   };
 
-  const isTrackLiked = (trackId: string): boolean => {
-    return likedSongs.some(song => song.id === trackId);
-  };
-
-  const createPlaylist = (name: string, description?: string): Playlist => {
-    const newPlaylist: Playlist = {
-      id: Date.now().toString(),
-      name,
-      description,
-      tracks: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      userId: 'local',
-      isPublic: false,
-    };
-    setPlaylists([...playlists, newPlaylist]);
-    return newPlaylist;
-  };
-
-  const deletePlaylist = (playlistId: string) => {
-    setPlaylists(playlists.filter(p => p.id !== playlistId));
-  };
-
-  const addToPlaylist = (playlistId: string, track: YouTubeVideo) => {
-    setPlaylists(playlists.map(p => 
-      p.id === playlistId && !p.tracks.some(t => t.id === track.id)
-        ? { ...p, tracks: [...p.tracks, track], updatedAt: new Date() }
-        : p
-    ));
-  };
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#2B2D42] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-r from-[#FF3CAC] to-[#784BA0] rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Music className="h-8 w-8 text-white" />
+          </div>
+          <p className="text-white">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#2B2D42]">
@@ -171,6 +174,23 @@ export const HomePage: React.FC = () => {
             <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base px-2">
               Search and play your favorite songs with text or voice search. Songs will automatically play one after another with continuous auto-play.
             </p>
+          </div>
+          
+          <div className="absolute top-4 right-4">
+            {user ? (
+              <UserMenu 
+                onShowLikedSongs={handleShowLikedSongs}
+                onShowPlaylists={handleShowPlaylists}
+              />
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-[#FF3CAC] to-[#784BA0] text-white rounded-lg hover:from-[#FF3CAC]/80 hover:to-[#784BA0]/80 transition-all duration-200"
+              >
+                <LogIn className="h-4 w-4" />
+                <span className="hidden md:inline">Sign In</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -213,7 +233,7 @@ export const HomePage: React.FC = () => {
                       key={playlist.id}
                       className="bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-colors cursor-pointer"
                       onClick={() => {
-                        if (playlist.tracks.length > 0) {
+                        if (playlist.tracks && playlist.tracks.length > 0) {
                           setQueue(playlist.tracks, 0);
                           setCurrentView('search');
                         }
@@ -224,7 +244,7 @@ export const HomePage: React.FC = () => {
                       </div>
                       <h3 className="text-white font-medium truncate">{playlist.name}</h3>
                       <p className="text-gray-400 text-sm">
-                        {playlist.tracks.length} song{playlist.tracks.length !== 1 ? 's' : ''}
+                        {playlist.tracks?.length || 0} song{(playlist.tracks?.length || 0) !== 1 ? 's' : ''}
                       </p>
                     </div>
                   ))}
@@ -277,7 +297,7 @@ export const HomePage: React.FC = () => {
                       onToggleVideo={toggleVideoView}
                       showVideo={showVideo}
                       onToggleLike={handleLikeToggle}
-                      onAddToPlaylist={handleAddToPlaylist}
+                      onAddToPlaylist={user ? handleAddToPlaylist : undefined}
                       isTrackLiked={isTrackLiked}
                     />
                   )}
@@ -346,11 +366,12 @@ export const HomePage: React.FC = () => {
           setShowPlaylistModal(false);
           setSelectedTrackForPlaylist(null);
         }}
-        playlists={playlists}
-        onCreatePlaylist={createPlaylist}
-        onDeletePlaylist={deletePlaylist}
-        onAddToPlaylist={addToPlaylist}
         selectedTrack={selectedTrackForPlaylist}
+      />
+      
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
       />
     </div>
   );
